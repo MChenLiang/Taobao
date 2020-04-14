@@ -1,0 +1,116 @@
+// normal path
+proc string stripLastSlash( string $inPath )
+{
+    string $path;
+	if ( (match( "^/$", $inPath ) == "") && // Root dir
+		 (match( "^[A-Za-z]:/$", $inPath ) == "" ) ) // X:/ on Windows
+	{
+		// Strip off last '/', if it exists
+		$path = substitute("/$", $inPath, "");
+	}
+	else{
+	$path = $inPath;
+	}
+	return $path;
+}
+
+// os.path.dirname
+proc string dirname( string $inPath )
+{
+	if ( `about -nt` || `about -mac`)
+		$path = convert( $inPath );
+
+	$path = stripLastSlash( $path );
+
+	string $dirname;
+	// If the path starts with "//" we'll assume this is a UNC path and
+	// treat this as root...
+	if ( match( "^//", $path ) != "" )
+	{
+		// Match first two slashes and everything up to the last slash
+		$dirname = match( "^//.*/", $path );
+		// Maybe there is no slash other than these first two -
+		// we'll keep the path we entered this block with
+		if ( size( $dirname ) == 0 )
+			$dirname = $path;
+		else
+			$dirname = stripLastSlash( $dirname );
+	}
+	else
+	{
+		// Match the beginning up to the first slash
+		$dirname = match( "^.*/", $path );
+	}
+
+	$dirname = stripLastSlash( $dirname );
+
+	return $dirname;
+}
+
+proc string basename(string $inPath){
+    $array = stringToStringArray($inPath, "/");
+    $length = size($array);
+    if ($length == 1){
+        return $array[0];
+    }
+    else {
+        return $array[$length - 1];
+    }
+}
+
+// os.path.basename(os.path.dirname(__file__))
+proc string folder(string $inPath){
+    string $f = dirname($inPath);
+    string $fBasename = basename($f);
+    return $f;
+}
+
+
+// get current shelf
+global string $gShelfTopLevel;
+string $currentShelf = `tabLayout -query -selectTab $gShelfTopLevel`;
+setParent $currentShelf;
+
+// get file path
+string $asInstallScriptLocation=`asInstallScriptLocation`;
+string $maya_script_path = dirname($asInstallScriptLocation);
+print($asInstallScriptLocation + "\n");
+print($maya_script_path  + "\n");
+// get tools name
+string $scriptName=basename($maya_script_path);
+print($scriptName  + "\n");
+print($maya_script_path  + "\n");
+// py command
+string $command  = "import sys\r\n" +
+"in_path='" +dirname($maya_script_path) + "'\r\n" +
+"in_path in sys.path or sys.path.append(in_path)\r\n" +
+"from " + $scriptName +".scripts import skirtRig\r\n"+
+"reload(skirtRig)\r\n" +
+"skirtRig.encryption()";
+
+// icon path
+string $icon=$maya_script_path+"/icons/MCL.png";
+
+//add user shelf buttom
+shelfButton
+	-command $command
+	-annotation $scriptName
+	-label $scriptName
+	-image $icon
+	-image1 $icon
+	-imageOverlayLabel $scriptName
+	-sourceType "python"
+;
+
+
+//--installTemplate resume--//
+print ("\n// "+$scriptName+" has been added to current shelf.\n");
+
+global proc asInstallScriptLocator (){}
+
+global proc string asInstallScriptLocation ()
+{
+string $whatIs=`whatIs asInstallScriptLocator`;
+string $fullPath=`substring $whatIs 25 999`;
+return $fullPath;
+}
